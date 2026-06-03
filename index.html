@@ -119,6 +119,7 @@
   .works-list {
     border-right: 0.5px solid #000; overflow-y: auto;
     scrollbar-width: none; display: flex; flex-direction: column;
+    min-height: 0;
   }
   .works-list::-webkit-scrollbar { display: none; }
 
@@ -401,8 +402,8 @@
   }
 
   /* ── MISC ── */
-  #misc { position: relative; overflow: hidden; }
-  #misc-field { position: absolute; inset: 0; }
+  #misc { position: relative; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+  #misc-field { position: relative; width: 100%; min-height: 100%; }
 </style>
 </head>
 <body>
@@ -748,10 +749,6 @@
 
 <!-- INFO -->
 <main class="page" id="info">
-  <div class="info-tabs">
-    <a data-tab="information" class="active">Information</a>
-    <a data-tab="selected">Selected Work</a>
-  </div>
   <div class="info-body">
     <div class="panel active" id="panel-information">
       <div class="info-grid">
@@ -788,9 +785,6 @@
         <div class="ig-label">CV</div>
         <div class="ig-val"><p><a href="./cv/kwonkihun_cv.pdf" target="_blank">Download PDF</a></p></div>
       </div>
-    </div>
-    <div class="panel" id="panel-selected">
-      <div class="sel-list" id="sel-list"></div>
     </div>
   </div>
 </main>
@@ -1427,16 +1421,6 @@ document.querySelectorAll('#works-mobile-tabs button').forEach(function(btn) {
 // 초기 로드 시 모바일이면 패널 세팅
 if (isMobile()) setMobilePanel('list');
 
-// ── Info Selected Work 렌더링 ──
-const selList = document.getElementById('sel-list');
-selList.innerHTML = `<div class="sel-row hd"><span>Year</span><span>Title</span><span style="text-align:right">Type</span></div>`;
-PROJECTS.forEach(p => {
-  const row = document.createElement('div');
-  row.className = 'sel-row';
-  row.innerHTML = `<span class="yr">${p.year}</span><span class="tt">${p.title}</span><span class="tp">${p.type}</span>`;
-  selList.appendChild(row);
-});
-
 // ── 커스텀 커서 ──
 const cursorEl = document.getElementById('cursor');
 const coordsEl = document.getElementById('coords');
@@ -1519,15 +1503,7 @@ document.querySelectorAll('.ig-val p').forEach(p => {
 });
 document.querySelectorAll('.ig-val .kk-trigger').forEach(el => el.addEventListener('click', triggerTypewriter));
 
-// Info tabs
-document.querySelectorAll('.info-tabs a[data-tab]').forEach(a => {
-  a.addEventListener('click', () => {
-    document.querySelectorAll('.info-tabs a[data-tab]').forEach(x => x.classList.remove('active'));
-    a.classList.add('active');
-    document.querySelectorAll('.info-body .panel').forEach(p => p.classList.remove('active'));
-    document.getElementById('panel-' + a.dataset.tab).classList.add('active');
-  });
-});
+
 
 
 
@@ -1562,6 +1538,7 @@ document.querySelectorAll('.info-tabs a[data-tab]').forEach(a => {
     "please.", "ow.", "ok ok.", "nope.", "why.",
     "don't.", "too close.", "baaaa.", "leave me alone.",
     "seriously?", "ugh.", "fine.", "i'm just standing here.",
+    "not me.", "again?", "ok i'm moving.", "bye.",
   ];
 
   var miscPage = document.getElementById('misc');
@@ -1569,97 +1546,117 @@ document.querySelectorAll('.info-tabs a[data-tab]').forEach(a => {
   var items    = [];
   var RAF      = null;
   var ready    = false;
-  var W = 0, H = 0;
 
-  var COLS     = 5;    // 그리드 열 수
-  var IMG_W    = 88;   // 이미지 너비
-  var GAP      = 20;
-  var REPEL    = 130;
-  var REPEL_F  = 22;
-  var RETURN   = 0.09;
-  var DAMP     = 0.80;
+  var REPEL   = 120;
+  var REPEL_F = 20;
+  var RETURN  = 0.10;
+  var DAMP    = 0.78;
+  var mouse   = { x: -9999, y: -9999 };
 
-  function rand(a, b) { return a + Math.random() * (b - a); }
+  function getImgW() {
+    var vw = window.innerWidth;
+    // 모바일: 더 작게
+    if (vw <= 480) return 70;
+    if (vw <= 800) return 80;
+    return 100;
+  }
+
+  function getLayout() {
+    var vw = window.innerWidth;
+    if (vw <= 480) return { cols: 4, gap: 10, padX: 16, padY: 20 };
+    if (vw <= 800) return { cols: 5, gap: 12, padX: 20, padY: 24 };
+    return { cols: 6, gap: 16, padX: 28, padY: 32 };
+  }
 
   function initItems() {
     field.innerHTML = '';
     items = [];
-    W = field.offsetWidth  || window.innerWidth;
-    H = field.offsetHeight || window.innerHeight;
 
-    // 그리드 정렬 — 가운데 정렬
-    var cols  = Math.min(COLS, FILES.length);
-    var rows  = Math.ceil(FILES.length / cols);
-    var totalW = cols * IMG_W + (cols - 1) * GAP;
-    var totalH = rows * IMG_W + (rows - 1) * GAP;
-    var startX = (W - totalW) / 2 + IMG_W / 2;
-    var startY = (H - totalH) / 2 + IMG_W / 2;
+    var IMG_W  = getImgW();
+    var layout = getLayout();
+    var padX   = layout.padX;
+    var padY   = layout.padY;
+    var cols   = layout.cols;
+    var gap    = layout.gap;
 
     FILES.forEach(function(src, i) {
       var col = i % cols;
       var row = Math.floor(i / cols);
-      var ox  = startX + col * (IMG_W + GAP);
-      var oy  = startY + row * (IMG_W + GAP);
+      var ox  = padX + col * (IMG_W + gap) + IMG_W / 2;
+      var oy  = padY + row * (IMG_W + gap) + IMG_W / 2;
 
-      // 말풍선 div
-      var bubble = document.createElement('div');
-      bubble.style.cssText = [
-        'position:absolute',
-        'font-family:"JetBrains Mono",monospace',
-        'font-size:9px', 'color:#555',
-        'white-space:nowrap',
-        'pointer-events:none',
-        'opacity:0',
-        'transition:opacity 0.15s',
-        'letter-spacing:0.04em',
-      ].join(';');
-      bubble.textContent = LINES[i % LINES.length];
-      field.appendChild(bubble);
-
+      // 이미지 — 원본비율 유지, 너비만 고정
       var el = document.createElement('img');
       el.src = src;
       el.draggable = false;
       el.style.cssText = [
         'position:absolute',
         'width:' + IMG_W + 'px',
-        'height:' + IMG_W + 'px',
-        'object-fit:cover',
+        'height:auto',          // 원본 비율 유지
         'pointer-events:none',
         'will-change:transform',
         'display:block',
       ].join(';');
       field.appendChild(el);
 
+      // 말풍선
+      var bubble = document.createElement('div');
+      bubble.style.cssText = [
+        'position:absolute',
+        'font-family:"JetBrains Mono",monospace',
+        'font-size:9px',
+        'color:#555',
+        'white-space:nowrap',
+        'pointer-events:none',
+        'opacity:0',
+        'letter-spacing:0.03em',
+        'z-index:10',
+      ].join(';');
+      field.appendChild(bubble);
+
       items.push({
         el: el, bubble: bubble,
         ox: ox, oy: oy,
         x: ox, y: oy,
         vx: 0, vy: 0,
+        imgW: IMG_W,
         talking: 0,
-        line: LINES[Math.floor(Math.random() * LINES.length)],
+        currentLine: LINES[Math.floor(Math.random() * LINES.length)],
+        wasClose: false,
       });
     });
-  }
 
-  var mouse = { x: -9999, y: -9999 };
+    // field 높이 = 마지막 행 아래 + 여백
+    var rows   = Math.ceil(FILES.length / layout.cols);
+    var fieldH = padY + rows * (IMG_W + layout.gap) + padY;
+    field.style.height = Math.max(fieldH, miscPage.offsetHeight) + 'px';
+  }
 
   function tick() {
     RAF = requestAnimationFrame(tick);
 
-    // 가장 가까운 2개만 말하게
+    // 가장 가까운 2개 인덱스
     var dists = items.map(function(it, i) {
       return { i: i, d: Math.hypot(it.x - mouse.x, it.y - mouse.y) };
     });
     dists.sort(function(a, b) { return a.d - b.d; });
     var talkers = {};
-    dists.slice(0, 2).forEach(function(d) {
-      if (d.d < REPEL * 1.1) talkers[d.i] = true;
+    dists.slice(0, 2).forEach(function(obj) {
+      if (obj.d < REPEL * 1.2) talkers[obj.i] = true;
     });
 
     items.forEach(function(it, i) {
       var dx   = it.x - mouse.x;
       var dy   = it.y - mouse.y;
       var dist = Math.sqrt(dx * dx + dy * dy);
+      var isClose = !!talkers[i];
+
+      // 새로 가까워졌을 때 대사 교체 (랜덤)
+      if (isClose && !it.wasClose) {
+        it.currentLine = LINES[Math.floor(Math.random() * LINES.length)];
+        it.bubble.textContent = it.currentLine;
+      }
+      it.wasClose = isClose;
 
       // 반발
       if (dist < REPEL && dist > 1) {
@@ -1668,7 +1665,7 @@ document.querySelectorAll('.info-tabs a[data-tab]').forEach(a => {
         it.vy += (dy / dist) * f * REPEL_F * 0.05;
       }
 
-      // 원위치
+      // 원위치 복귀
       it.vx += (it.ox - it.x) * RETURN;
       it.vy += (it.oy - it.y) * RETURN;
       it.vx *= DAMP;
@@ -1676,30 +1673,36 @@ document.querySelectorAll('.info-tabs a[data-tab]').forEach(a => {
       it.x  += it.vx;
       it.y  += it.vy;
 
-      it.el.style.left      = (it.x - IMG_W / 2) + 'px';
-      it.el.style.top       = (it.y - IMG_W / 2) + 'px';
+      var iw = it.imgW;
+      var ih = it.el.offsetHeight || iw; // 로드 후 실제 높이
 
-      // 말풍선
-      var shouldTalk = !!talkers[i];
-      it.talking = shouldTalk ? Math.min(1, it.talking + 0.08) : Math.max(0, it.talking - 0.05);
-      it.bubble.style.opacity = it.talking;
-      it.bubble.style.left    = (it.x + IMG_W / 2 + 4) + 'px';
-      it.bubble.style.top     = (it.y - IMG_W / 2 - 2) + 'px';
+      it.el.style.left = (it.x - iw / 2) + 'px';
+      it.el.style.top  = (it.y - ih / 2) + 'px';
+
+      // 말풍선 opacity + 위치
+      it.talking = isClose
+        ? Math.min(1, it.talking + 0.10)
+        : Math.max(0, it.talking - 0.06);
+      it.bubble.style.opacity = it.talking > 0.01 ? it.talking : 0;
+      it.bubble.style.left = (it.x + iw / 2 + 4) + 'px';
+      it.bubble.style.top  = (it.y - ih / 2 - 2) + 'px';
     });
   }
 
+  // 이벤트
   miscPage.addEventListener('mousemove', function(e) {
     var r = field.getBoundingClientRect();
     mouse.x = e.clientX - r.left;
     mouse.y = e.clientY - r.top;
   });
-  miscPage.addEventListener('mouseleave', function() { mouse.x = -9999; mouse.y = -9999; });
+  miscPage.addEventListener('mouseleave', function() { mouse.x=-9999; mouse.y=-9999; });
   miscPage.addEventListener('touchmove', function(e) {
+    e.preventDefault();
     var r = field.getBoundingClientRect();
     mouse.x = e.touches[0].clientX - r.left;
     mouse.y = e.touches[0].clientY - r.top;
-  }, { passive: true });
-  miscPage.addEventListener('touchend', function() { mouse.x = -9999; mouse.y = -9999; });
+  }, { passive: false });
+  miscPage.addEventListener('touchend', function() { mouse.x=-9999; mouse.y=-9999; });
 
   function startMisc() {
     if (RAF) return;
