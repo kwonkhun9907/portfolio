@@ -305,18 +305,78 @@
   .sel-row .tt { font-size: 12px; }
   .sel-row .tp { font-size: 11px; color: var(--muted); text-align: right; }
 
+  /* ── 모바일 Works 탭 토글 ── */
+  .works-mobile-tabs {
+    display: none;
+  }
+
   @media (max-width: 800px) {
-    html, body { height: auto; overflow: auto; }
-    main.page { height: auto; overflow: visible; }
-    .works-split { grid-template-columns: 1fr; }
-    .works-list { border-right: none; max-height: 40vh; }
-    .works-right { min-height: 60vh; }
-    #home .meta, #ceramic .ceramic-footer { grid-template-columns: 1fr; gap: 16px; }
+    html, body { height: 100vh; overflow: hidden; }
+    main.page { height: calc(100vh - 45px); overflow: hidden; }
+    #ceramic.active { height: auto; overflow-y: auto; }
+
+    /* Works 모바일 탭 */
+    #works { flex-direction: column; }
+    .works-mobile-tabs {
+      display: flex; flex-shrink: 0;
+      border-bottom: 0.5px solid #000;
+    }
+    .works-mobile-tabs button {
+      flex: 1; background: none; border: none; outline: none;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px; letter-spacing: 0.02em;
+      color: var(--muted); padding: 11px 0; cursor: none;
+      border-bottom: 1.5px solid transparent; margin-bottom: -0.5px;
+      transition: color 0.1s;
+    }
+    .works-mobile-tabs button.active { color: var(--fg); border-bottom-color: var(--fg); }
+
+    .works-split {
+      grid-template-columns: 1fr;
+      flex: 1; min-height: 0;
+    }
+
+    /* 리스트 패널 */
+    .works-list {
+      border-right: none;
+      height: 100%;
+      overflow-y: auto;
+      display: none;
+    }
+    .works-list.mob-active { display: flex; flex-direction: column; }
+
+    /* 아카이브/상세뷰 패널 */
+    .works-right {
+      height: 100%;
+      overflow-y: auto;
+      display: none;
+    }
+    .works-right.mob-active { display: block; }
+
+    /* 상세뷰 레이아웃 조정 */
+    .layout-confessions { grid-template-columns: repeat(2, 1fr); }
+    .layout-grid2, .layout-hover, .layout-gorillas,
+    .layout-reconstruction, .layout-bds, .layout-nondry,
+    .layout-jumble1 { grid-template-columns: 1fr 1fr; }
+    .layout-reconstruction { gap: 16px; flex-direction: column; }
+    .layout-reconstruction .recon-col { width: 100%; }
+
+    /* Home */
+    #home .meta { grid-template-columns: 1fr; gap: 16px; }
+    #home { padding: 24px 20px 24px; }
+    #home .big { font-size: clamp(48px, 18vw, 120px); margin-bottom: 4vh; }
+
+    /* Info */
     .info-grid { grid-template-columns: 1fr; gap: 6px 0; }
     .info-grid .ig-label { margin-top: 18px; }
-    .layout-confessions { grid-template-columns: repeat(2, 1fr); }
-    .layout-grid2, .layout-hover, .layout-gorillas, .layout-reconstruction { grid-template-columns: 1fr; }
-    .layout-reconstruction { gap: 16px; }
+
+    /* Ceramic */
+    #ceramic .ceramic-footer { grid-template-columns: 1fr; gap: 16px; }
+    #ceramic .ceramic-title { font-size: clamp(40px, 14vw, 100px); }
+
+    /* Nav */
+    nav.topnav { padding: 12px 16px 10px; }
+    nav.topnav .links { gap: 18px; }
   }
 </style>
 </head>
@@ -351,8 +411,12 @@
 
 <!-- WORKS: JS로 렌더링 -->
 <main class="page" id="works">
+  <div class="works-mobile-tabs" id="works-mobile-tabs">
+    <button class="active" data-panel="list">List</button>
+    <button data-panel="grid">Grid</button>
+  </div>
   <div class="works-split">
-    <div class="works-list">
+    <div class="works-list" id="works-list-panel">
       <div class="col-head">
         <span>No.</span><span>Title</span><span style="text-align:right">Year</span>
       </div>
@@ -1211,6 +1275,8 @@ projectList.addEventListener('click', e => {
   const id = li.dataset.id;
   listItems().forEach(x => x.classList.remove('active'));
   li.classList.add('active');
+  // 모바일: Grid 패널로 전환
+  if (isMobile()) setMobilePanel('grid');
   if (detailView.classList.contains('show')) { showArchive(id); return; }
   const target = document.getElementById('arc-' + id);
   if (target) worksRight.scrollTo({ top: target.offsetTop, behavior: 'smooth' });
@@ -1286,8 +1352,49 @@ document.querySelectorAll('nav.topnav a[data-page]').forEach(a => {
         if (window.__CERAMIC_START__) window.__CERAMIC_START__();
       });
     }
+    // Works 탭 진입 시 모바일 패널 초기화
+    if (a.dataset.page === 'works') initMobileWorksPanel();
   });
 });
+
+// ── 모바일 Works 탭 토글 ──
+function isMobile() { return window.innerWidth <= 800; }
+
+function initMobileWorksPanel() {
+  if (!isMobile()) return;
+  var listPanel  = document.getElementById('works-list-panel');
+  var rightPanel = document.getElementById('works-right');
+  // 현재 active 버튼 기준으로 패널 세팅
+  var activeBtn = document.querySelector('#works-mobile-tabs button.active');
+  var which = activeBtn ? activeBtn.dataset.panel : 'list';
+  setMobilePanel(which);
+}
+
+function setMobilePanel(which) {
+  var listPanel  = document.getElementById('works-list-panel');
+  var rightPanel = document.getElementById('works-right');
+  document.querySelectorAll('#works-mobile-tabs button').forEach(function(b) {
+    b.classList.toggle('active', b.dataset.panel === which);
+  });
+  if (which === 'list') {
+    listPanel.classList.add('mob-active');
+    rightPanel.classList.remove('mob-active');
+  } else {
+    listPanel.classList.remove('mob-active');
+    rightPanel.classList.add('mob-active');
+  }
+}
+
+document.querySelectorAll('#works-mobile-tabs button').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    setMobilePanel(btn.dataset.panel);
+  });
+});
+
+// 상세뷰 Back: 기존 리스너(showArchive)가 처리
+
+// 초기 로드 시 모바일이면 패널 세팅
+if (isMobile()) setMobilePanel('list');
 
 // ── Info Selected Work 렌더링 ──
 const selList = document.getElementById('sel-list');
