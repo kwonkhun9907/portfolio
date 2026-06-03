@@ -140,18 +140,17 @@
     display: grid;
     grid-template-columns: 1fr 1fr;
     align-items: start;
-  }
-  .archive-empty {
-    height: 100%; display: flex; align-items: center; justify-content: center;
-    font-size: 11px; color: var(--dim); min-height: 200px;
+    grid-auto-rows: auto;
   }
   .archive-item { padding: 16px; }
   .archive-thumb {
     width: 100%; margin-bottom: 16px;
-    overflow: hidden;
+    overflow: hidden; aspect-ratio: 4/3;
+    display: flex; align-items: center; justify-content: center;
+    background: #f7f7f7;
   }
   .archive-thumb img {
-    width: 100%; height: auto; display: block; opacity: 0; transition: opacity 0.35s ease;
+    width: 100%; height: 100%; object-fit: cover; display: block; opacity: 0; transition: opacity 0.35s ease;
   }
   .archive-thumb img.loaded { opacity: 1; }
   .archive-row { display: grid; grid-template-columns: 1fr auto; align-items: end; gap: 12px; }
@@ -252,12 +251,14 @@
   .layout-gorillas .d-img-wrap { background: none; }
   .layout-gorillas .d-img-wrap img { width: 100%; height: auto; display: block; opacity: 0; transition: opacity 0.35s; }
   .layout-gorillas .d-img-wrap img.loaded { opacity: 1; }
+  .layout-gorillas .d-img-wrap.odd img { width: 80%; margin: 0 auto; display: block; }
 
   /* reconstruction: 그래픽(좌) + 사진(우) 나란히 */
-  .layout-reconstruction { display: grid; grid-template-columns: 1fr 1fr; gap: 32px; align-items: start; }
+  .layout-reconstruction { display: grid; grid-template-columns: 1fr 1fr; gap: 64px; align-items: start; }
   .layout-reconstruction .recon-col { display: flex; flex-direction: column; gap: 8px; }
-  .layout-reconstruction .d-img-wrap { background: #f3f3f3; }
-  .layout-reconstruction .d-img-wrap img { width: 100%; display: block; opacity: 0; transition: opacity 0.35s; }
+  .layout-reconstruction .recon-col:last-child { gap: 16px; }
+  .layout-reconstruction .d-img-wrap { background: none; }
+  .layout-reconstruction .d-img-wrap img { width: 100%; height: auto; display: block; opacity: 0; transition: opacity 0.35s; }
   .layout-reconstruction .d-img-wrap img.loaded { opacity: 1; }
   .layout-reconstruction .recon-label {
     font-size: 10px; color: var(--muted); letter-spacing: 0.07em;
@@ -526,7 +527,7 @@ const PROJECTS = [
     year: '2023',
     type: 'Identity',
     layout: 'grid2',
-    images: ['01.jpg','02.jpg','03.jpg','04.jpg']
+    images: ['01.jpg','02.jpg','03.png','04.jpg']
   },
   {
     id: 'p18',
@@ -861,9 +862,9 @@ function renderDetail(p) {
   } else if (p.layout === 'gorillas') {
     const wrap = document.createElement('div');
     wrap.className = 'layout-gorillas';
-    (p.images || []).forEach(f => {
+    (p.images || []).forEach((f, idx) => {
       const cell = document.createElement('div');
-      cell.className = 'd-img-wrap';
+      cell.className = 'd-img-wrap' + (idx % 2 === 0 ? ' odd' : '');
       cell.appendChild(lazyImg(base + f, p.title));
       wrap.appendChild(cell);
     });
