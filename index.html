@@ -452,11 +452,16 @@
     const canvas=document.getElementById('ck-canvas');
     const ctx=canvas.getContext('2d');
     const wrap=document.getElementById('ck-wrap');
-    const SIZE=Math.min(280,(wrap.offsetWidth||window.innerWidth)-40);
-    canvas.width=SIZE;canvas.height=Math.round(SIZE*300/280);
-    const CW=canvas.width,CH=canvas.height,CX=CW/2;
-    const BY=CH-Math.round(CH*32/300);
-    const WRX=Math.round(CW*80/280),WRY=Math.round(CW*10/280);
+
+    let CW,CH,CX,BY,WRX,WRY;
+
+    function resizeCanvas(){
+      const SIZE=Math.min(280,(wrap.offsetWidth||window.innerWidth)-40);
+      canvas.width=SIZE;canvas.height=Math.round(SIZE*300/280);
+      CW=canvas.width;CH=canvas.height;CX=CW/2;
+      BY=CH-Math.round(CH*32/300);
+      WRX=Math.round(CW*80/280);WRY=Math.round(CW*10/280);
+    }
 
     let clay={body:'#bfad98',rim:'#afa090',hi:'rgba(255,248,238,0.38)',name:'Stoneware'};
     let glaze={overlay:'rgba(0,0,0,0)',name:'None'};
@@ -621,6 +626,13 @@
       document.getElementById('ck-msg').style.color='#999';
       document.getElementById('ck-prog').style.display='none';
       document.getElementById('ck-pf').style.width='0%';
+    };
+
+    // 외부에서 호출 가능하도록 전역 등록
+    window.__CERAMIC_START__ = function(){
+      resizeCanvas();
+      init();
+      requestAnimationFrame(ts=>{lastT=ts;requestAnimationFrame(frame);});
     };
 
     // ceramic 탭 클릭 시 canvas 루프 시작
@@ -1267,11 +1279,12 @@ document.querySelectorAll('nav.topnav a[data-page]').forEach(a => {
     a.classList.add('active');
     document.querySelectorAll('main.page').forEach(p => p.classList.remove('active'));
     document.getElementById(a.dataset.page).classList.add('active');
-    // ceramic 탭: canvas 루프 시작 (최초 1회)
+    // ceramic 탭: display 전환 후 다음 프레임에 canvas 초기화
     if (a.dataset.page === 'ceramic' && !window.__CERAMIC_CANVAS_READY__) {
       window.__CERAMIC_CANVAS_READY__ = true;
-      const ckCanvas = document.getElementById('ck-canvas');
-      if (ckCanvas) ckCanvas.dispatchEvent(new Event('ck-start'));
+      requestAnimationFrame(() => {
+        if (window.__CERAMIC_START__) window.__CERAMIC_START__();
+      });
     }
   });
 });
