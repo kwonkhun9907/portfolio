@@ -433,7 +433,7 @@ const PROJECTS = [
     title: 'apes',
     year: '2025',
     type: 'Editorial',
-    layout: 'default',
+    layout: 'grid2',
     images: ['01.jpg','02.jpg','03.jpg','04.jpg','05.jpg','06.jpg']
   },
   {
@@ -486,7 +486,7 @@ const PROJECTS = [
     title: '415-1',
     year: '2023',
     type: 'Identity',
-    layout: 'default',
+    layout: 'grid2',
     images: ['01.jpg','02.jpg','03.jpg','04.jpg']
   },
   {
@@ -513,7 +513,7 @@ const PROJECTS = [
     title: 'Hoonies cookies',
     year: '2022',
     type: 'Identity',
-    layout: 'default',
+    layout: 'grid2',
     images: ['01.jpg','02.jpg','03.jpg','04.jpg','05.jpg','06.jpg',
              '07.jpg','08.jpg','09.jpg','10.jpg','11.jpg','12.jpg']
   },
@@ -577,27 +577,53 @@ function thumbPath(folder, ext) {
   return './images/works/' + folder + '/thumb.' + (ext || 'jpg');
 }
 
-// ── Lazy Load (IntersectionObserver) ──
-const lazyObserver = new IntersectionObserver((entries, obs) => {
-  entries.forEach(entry => {
-    if (!entry.isIntersecting) return;
-    const img = entry.target;
-    const src = img.dataset.src;
-    if (!src) return;
-    img.src = src;
-    img.onload  = () => img.classList.add('loaded');
-    img.onerror = () => {};
-    obs.unobserve(img);
-  });
-}, { root: null, rootMargin: '300px', threshold: 0 });
+// ── Lazy Load ──
+// works-right는 overflow scroll 컨테이너라 root로 지정해야 감지됨
+// archive thumb은 DOM 생성 시점에 바로 로드 (페이지 첫 진입 시 보임)
+function loadImg(img) {
+  const src = img.dataset.src;
+  if (!src || img.src === src) return;
+  img.src = src;
+  img.onload  = () => img.classList.add('loaded');
+  img.onerror = () => {};
+}
+
+// 상세뷰용 lazy observer (works-right를 root로)
+let detailObserver = null;
+function getDetailObserver() {
+  if (detailObserver) return detailObserver;
+  const worksRightEl = document.getElementById('works-right');
+  detailObserver = new IntersectionObserver((entries, obs) => {
+    entries.forEach(entry => {
+      if (!entry.isIntersecting) return;
+      loadImg(entry.target);
+      obs.unobserve(entry.target);
+    });
+  }, { root: worksRightEl, rootMargin: '400px', threshold: 0 });
+  return detailObserver;
+}
 
 function lazyImg(src, alt, extraClass) {
   const img = document.createElement('img');
   img.dataset.src = src;
   img.alt = alt || '';
   if (extraClass) img.classList.add(extraClass);
-  lazyObserver.observe(img);
+  // 상세뷰 이미지는 renderDetail 후 observer에 등록됨
   return img;
+}
+
+// archive thumb 즉시 로드 함수 (DOM append 후 호출)
+function observeThumb(img) {
+  // works-right 스크롤 컨테이너 기준 observer
+  const worksRightEl = document.getElementById('works-right');
+  const thumbObserver = new IntersectionObserver((entries, obs) => {
+    entries.forEach(entry => {
+      if (!entry.isIntersecting) return;
+      loadImg(entry.target);
+      obs.unobserve(entry.target);
+    });
+  }, { root: worksRightEl, rootMargin: '200px', threshold: 0 });
+  thumbObserver.observe(img);
 }
 
 // ── Works 리스트 렌더링 ──
@@ -630,6 +656,7 @@ PROJECTS.forEach(p => {
   thumbDiv.className = 'archive-thumb';
   const tImg = lazyImg('./images/works/' + p.folder + '/' + tFile, p.title);
   thumbDiv.appendChild(tImg);
+  requestAnimationFrame(() => observeThumb(tImg));
 
   div.innerHTML = `
     <div class="archive-row">
@@ -856,6 +883,9 @@ archiveView.addEventListener('click', e => {
   document.getElementById('d-type').textContent  = p.type;
 
   renderDetail(p);
+
+  // 상세뷰 이미지 lazy observer 등록
+  document.querySelectorAll('#detail-images img[data-src]').forEach(img => getDetailObserver().observe(img));
 
   archiveView.style.display = 'none';
   detailView.classList.add('show');
